@@ -110,5 +110,3 @@ def load_data(task, method):
         return pd.read_csv(f"./new_data/multiclass/{method}.csv")
     else:
         return pd.read_csv(f"./new_data/tri/{method}.csv")
-
-train_roberta("binary", "universal")
