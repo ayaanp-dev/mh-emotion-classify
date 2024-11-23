@@ -30,4 +30,7 @@ def train_svm(task, method):
     print(f"Accuracy for {task} task with {method} method: {accuracy_score(y_test, y_pred)}")
     print(classification_report(y_test, y_pred))
 
+    # save model
+    np.save(f"./models/svm_{task}_{method}.npy", model)
+
 train_svm("binary", "lemmatization")

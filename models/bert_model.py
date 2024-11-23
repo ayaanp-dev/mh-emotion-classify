@@ -113,3 +113,6 @@ def train_bert(task, method):
                 val_labels.extend(labels.cpu().numpy())
         print(f"Epoch {epoch+1}, Validation Accuracy: {accuracy_score(val_labels, val_preds)}")
         print(classification_report(val_labels, val_preds))
+
+        # save model
+        torch.save(model.state_dict(), f"./models/bert_{task}_{method}.pt")

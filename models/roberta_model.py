@@ -103,6 +103,9 @@ def train_roberta(task, method):
         print(f"Epoch {epoch + 1} - Validation Accuracy: {accuracy_score(val_labels, val_preds)}")
         print(classification_report(val_labels, val_preds, target_names=le.classes_))
 
+        # save model
+        torch.save(model.state_dict(), f"./models/roberta_{task}_{method}.pth")
+
 def load_data(task, method):
     if task == "binary":
         return pd.read_csv(f"./new_data/binary/{method}.csv")
