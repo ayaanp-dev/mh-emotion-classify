@@ -1,15 +1,18 @@
-# train a text classification model using BERT and pytorch
+# train a text classification model using RoBERTa and pytorch
 
 import pandas as pd
 import numpy as np
 import torch
 import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
-from transformers import BertTokenizer, BertModel
+from transformers import RobertaTokenizer, RobertaModel, get_linear_schedule_with_warmup
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report, accuracy_score
 from sklearn.preprocessing import LabelEncoder
 from sklearn.utils import shuffle
+from torch.cuda.amp import GradScaler, autocast
+from tqdm import tqdm
+import os
 
 class EmotionDataset(Dataset):
     def __init__(self, df, tokenizer, max_len):
@@ -47,15 +50,15 @@ class EmotionDataset(Dataset):
             'label': label
         }
 
-class BertClassifier(nn.Module):
+class RobertaClassifier(nn.Module):
     def __init__(self, pretrained_model_name, num_classes):
-        super(BertClassifier, self).__init__()
-        self.bert = BertModel.from_pretrained(pretrained_model_name)
+        super(RobertaClassifier, self).__init__()
+        self.roberta = RobertaModel.from_pretrained(pretrained_model_name)
         self.dropout = nn.Dropout(0.1)
-        self.classifier = nn.Linear(self.bert.config.hidden_size, num_classes)
+        self.classifier = nn.Linear(self.roberta.config.hidden_size, num_classes)
 
-    def forward(self, input_ids, attention_mask, token_type_ids):
-        outputs = self.bert(input_ids=input_ids, attention_mask=attention_mask, token_type_ids=token_type_ids)
+    def forward(self, input_ids, attention_mask, token_type_ids=None):
+        outputs = self.roberta(input_ids=input_ids, attention_mask=attention_mask)
         pooled_output = outputs.pooler_output
         pooled_output = self.dropout(pooled_output)
         logits = self.classifier(pooled_output)
@@ -69,36 +72,59 @@ def load_data(task, method):
     else:
         return pd.read_csv(f"./new_data/{method}.csv")
 
-def train_bert(task, method):
+def train_roberta(task, method):
     df = load_data(task, method)
+    print("data loaded")
     encoder = LabelEncoder()
     df["emotion"] = encoder.fit_transform(df["emotion"])
     df = df.rename(columns={"emotion": "label"})  # Ensure the label column is correctly named
-    tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
+    tokenizer = RobertaTokenizer.from_pretrained('roberta-base')
     max_len = 512  # or any other length you prefer
 
     dataset = EmotionDataset(df, tokenizer, max_len)
     train_size = int(0.8 * len(dataset))
     train_dataset, val_dataset = torch.utils.data.random_split(dataset, [train_size, len(dataset) - train_size])
-    train_loader = DataLoader(train_dataset, batch_size=8, shuffle=True)
-    val_loader = DataLoader(val_dataset, batch_size=8, shuffle=False)
-    model = BertClassifier("bert-base-uncased", num_classes=len(encoder.classes_))
+    train_loader = DataLoader(train_dataset, batch_size=16, shuffle=True)  # Increased batch size
+    val_loader = DataLoader(val_dataset, batch_size=16, shuffle=False)  # Increased batch size
+    model = RobertaClassifier("roberta-base", num_classes=len(encoder.classes_))
     criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.AdamW(model.parameters(), lr=2e-5)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model.to(device)
-    for epoch in range(3):
+    accumulation_steps = 2  # Number of batches to accumulate gradients
+    scaler = GradScaler()
+
+    num_epochs = 3
+    total_steps = len(train_loader) * num_epochs
+    scheduler = get_linear_schedule_with_warmup(optimizer, num_warmup_steps=0, num_training_steps=total_steps)
+
+    for epoch in range(num_epochs):
         model.train()
-        for batch in train_loader:
+        optimizer.zero_grad()
+        train_loss = 0.0
+        progress_bar = tqdm(train_loader, desc=f"Epoch {epoch+1}")
+        for i, batch in enumerate(progress_bar):
             input_ids = batch["input_ids"].to(device)
             attention_mask = batch["attention_mask"].to(device)
             token_type_ids = batch["token_type_ids"].to(device)
             labels = batch["label"].to(device)
-            optimizer.zero_grad()
-            logits = model(input_ids, attention_mask, token_type_ids)
-            loss = criterion(logits, labels)
-            loss.backward()
-            optimizer.step()
+            
+            with autocast():
+                logits = model(input_ids, attention_mask, token_type_ids)
+                loss = criterion(logits, labels)
+                loss = loss / accumulation_steps  # Normalize loss
+            
+            scaler.scale(loss).backward()
+            train_loss += loss.item()
+            
+            if (i + 1) % accumulation_steps == 0:
+                scaler.step(optimizer)
+                scaler.update()
+                optimizer.zero_grad()
+                scheduler.step()
+            
+            progress_bar.set_postfix({"loss": train_loss / (i + 1)})
+        
         model.eval()
         val_preds = []
         val_labels = []
@@ -114,5 +140,7 @@ def train_bert(task, method):
         print(f"Epoch {epoch+1}, Validation Accuracy: {accuracy_score(val_labels, val_preds)}")
         print(classification_report(val_labels, val_preds))
 
-        # save model
-        torch.save(model.state_dict(), f"./models/bert_{task}_{method}.pt")
+    model_save_path = f"./models/bert_{task}_{method}.pt"
+    os.makedirs(os.path.dirname(model_save_path), exist_ok=True)
+    torch.save(model.state_dict(), model_save_path)
+    print(f"Model saved to {model_save_path}")

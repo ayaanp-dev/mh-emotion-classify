@@ -8,8 +8,11 @@ def train_models():
     methods = ["lemmatization", "stemming", "no_preprocessing"]
 
     for task in tasks:
+        print(f"Training {task} models")
         for method in methods:
+            print(f"Training {task} models with {method} preprocessing")
             train_bert(task, method)
+            print("Finished training BERT model")
             train_roberta(task, method)
 
 train_models()
