@@ -1,11 +1,11 @@
-# train a text classification model using RoBERTa and pytorch
+# train a text classification model using BERT and pytorch
 
 import pandas as pd
 import numpy as np
 import torch
 import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
-from transformers import RobertaTokenizer, RobertaModel, get_linear_schedule_with_warmup
+from transformers import BertTokenizer, BertModel, get_linear_schedule_with_warmup
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report, accuracy_score
 from sklearn.preprocessing import LabelEncoder
@@ -50,15 +50,15 @@ class EmotionDataset(Dataset):
             'label': label
         }
 
-class RobertaClassifier(nn.Module):
+class BertClassifier(nn.Module):
     def __init__(self, pretrained_model_name, num_classes):
-        super(RobertaClassifier, self).__init__()
-        self.roberta = RobertaModel.from_pretrained(pretrained_model_name)
+        super(BertClassifier, self).__init__()
+        self.bert = BertModel.from_pretrained(pretrained_model_name)
         self.dropout = nn.Dropout(0.1)
-        self.classifier = nn.Linear(self.roberta.config.hidden_size, num_classes)
+        self.classifier = nn.Linear(self.bert.config.hidden_size, num_classes)
 
     def forward(self, input_ids, attention_mask, token_type_ids=None):
-        outputs = self.roberta(input_ids=input_ids, attention_mask=attention_mask)
+        outputs = self.bert(input_ids=input_ids, attention_mask=attention_mask)
         pooled_output = outputs.pooler_output
         pooled_output = self.dropout(pooled_output)
         logits = self.classifier(pooled_output)
@@ -72,13 +72,13 @@ def load_data(task, method):
     else:
         return pd.read_csv(f"./new_data/{method}.csv")
 
-def train_roberta(task, method):
+def train_bert(task, method):
     df = load_data(task, method)
     print("data loaded")
     encoder = LabelEncoder()
     df["emotion"] = encoder.fit_transform(df["emotion"])
     df = df.rename(columns={"emotion": "label"})  # Ensure the label column is correctly named
-    tokenizer = RobertaTokenizer.from_pretrained('roberta-base')
+    tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
     max_len = 512  # or any other length you prefer
 
     dataset = EmotionDataset(df, tokenizer, max_len)
@@ -86,7 +86,7 @@ def train_roberta(task, method):
     train_dataset, val_dataset = torch.utils.data.random_split(dataset, [train_size, len(dataset) - train_size])
     train_loader = DataLoader(train_dataset, batch_size=16, shuffle=True)  # Increased batch size
     val_loader = DataLoader(val_dataset, batch_size=16, shuffle=False)  # Increased batch size
-    model = RobertaClassifier("roberta-base", num_classes=len(encoder.classes_))
+    model = BertClassifier("bert-base-uncased", num_classes=len(encoder.classes_))
     criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.AdamW(model.parameters(), lr=2e-5)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
