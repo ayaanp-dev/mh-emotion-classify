@@ -84,14 +84,14 @@ def train_bert(task, method):
     dataset = EmotionDataset(df, tokenizer, max_len)
     train_size = int(0.8 * len(dataset))
     train_dataset, val_dataset = torch.utils.data.random_split(dataset, [train_size, len(dataset) - train_size])
-    train_loader = DataLoader(train_dataset, batch_size=16, shuffle=True)  # Increased batch size
-    val_loader = DataLoader(val_dataset, batch_size=16, shuffle=False)  # Increased batch size
+    train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True)  # Increased batch size
+    val_loader = DataLoader(val_dataset, batch_size=32, shuffle=False)  # Increased batch size
     model = BertClassifier("bert-base-uncased", num_classes=len(encoder.classes_))
     criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.AdamW(model.parameters(), lr=2e-5)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model.to(device)
-    accumulation_steps = 2  # Number of batches to accumulate gradients
+    accumulation_steps = 4  # Number of batches to accumulate gradients
     scaler = GradScaler()
 
     num_epochs = 3
@@ -102,7 +102,7 @@ def train_bert(task, method):
         model.train()
         optimizer.zero_grad()
         train_loss = 0.0
-        progress_bar = tqdm(train_loader, desc=f"Epoch {epoch+1}")
+        progress_bar = tqdm(train_loader, desc=f"Epoch {epoch+1}", disable=False)
         for i, batch in enumerate(progress_bar):
             input_ids = batch["input_ids"].to(device)
             attention_mask = batch["attention_mask"].to(device)
