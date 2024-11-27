@@ -24,6 +24,12 @@ def load_triclass_data():
     pos = pd.read_csv("./new_data/tri/positive.csv")
     return pd.concat([neg, neu, pos], ignore_index=True)
 
+def shuffle(df):
+
+    # Shuffle the DataFrame
+    df = df.sample(frac=1).reset_index(drop=True)
+    return df
+
 def preprocess_data(task, method):
     if task == "binary":
         df = load_binary_data()
@@ -33,13 +39,13 @@ def preprocess_data(task, method):
         df = load_triclass_data()
 
     if method == "lemmatization":
-        df = basic_preprocessing(df)
+        df = shuffle(df)
         df = lemmatize_data(df)
     elif method == "stemming":
-        df = basic_preprocessing(df)
+        df = shuffle(df)
         df = stem_data(df)
     else:
-        df = basic_preprocessing(df)
+        df = shuffle(df)
     
     save_data(df, task, method)
 
