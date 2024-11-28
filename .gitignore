@@ -4,3 +4,4 @@
 /.venv
 /new_data
 __pycache__
+*.pt

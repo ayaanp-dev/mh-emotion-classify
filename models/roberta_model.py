@@ -94,7 +94,7 @@ def train_roberta(task, method):
     accumulation_steps = 4  # Number of batches to accumulate gradients
     scaler = GradScaler()
 
-    num_epochs = 3
+    num_epochs = 1
     total_steps = len(train_loader) * num_epochs
     scheduler = get_linear_schedule_with_warmup(optimizer, num_warmup_steps=0, num_training_steps=total_steps)
 
