@@ -5,7 +5,7 @@ from roberta_model import train_roberta
 
 def train_models():
     tasks = ["binary", "multiclass", "tri"]
-    methods = ["lemmatization", "stemming", "no_preprocessing"]
+    methods = ["lemmatization", "stemming", "universal"]
 
     for task in tasks:
         print(f"Training {task} models")

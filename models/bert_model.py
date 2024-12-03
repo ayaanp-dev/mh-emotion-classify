@@ -70,7 +70,7 @@ def load_data(task, method):
     elif task == "multiclass":
         return pd.read_csv(f"./new_data/multiclass/{method}.csv")
     else:
-        return pd.read_csv(f"./new_data/{method}.csv")
+        return pd.read_csv(f"./new_data/tri/{method}.csv")
 
 def train_bert(task, method):
     df = load_data(task, method)
