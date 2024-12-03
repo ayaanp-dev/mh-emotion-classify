@@ -1,10 +1,10 @@
 import pandas as pd
-import numpy as np
+from sklearn import model_selection, svm
 from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.model_selection import train_test_split
-from sklearn.svm import SVC
-from sklearn.metrics import classification_report, accuracy_score
-from sklearn.pipeline import make_pipeline
+from sklearn.metrics import accuracy_score
+from sklearn.preprocessing import LabelEncoder
+import joblib
+import os
 
 def load_data(task, method):
     if task == "binary":
@@ -14,23 +14,29 @@ def load_data(task, method):
     else:
         return pd.read_csv(f"./new_data/tri/{method}.csv")
 
-def vectorize_data(df):
-    vectorizer = TfidfVectorizer()
-    X = vectorizer.fit_transform(df["content"])
-    y = df["emotion"]
-    return X, y
+def strip_text(text):
+    return text.strip()
 
 def train_svm(task, method):
     df = load_data(task, method)
-    X, y = vectorize_data(df)
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-    model = make_pipeline(SVC())
-    model.fit(X_train, y_train)
-    y_pred = model.predict(X_test)
-    print(f"Accuracy for {task} task with {method} method: {accuracy_score(y_test, y_pred)}")
-    print(classification_report(y_test, y_pred))
+    df['content'] = df['content'].apply(strip_text)
+    
+    encoder = LabelEncoder()
+    df['emotion'] = encoder.fit_transform(df['emotion'])
 
-    # save model
-    np.save(f"./models/svm_{task}_{method}.npy", model)
+    train_x, val_x, train_y, val_y = model_selection.train_test_split(df['content'], df['emotion'], test_size=0.2, random_state=42)
 
-train_svm("binary", "lemmatization")
+    Tfidf_vect = TfidfVectorizer(max_features=5000, stop_words='english')
+    Tfidf_vect.fit(df['content'])
+    train_x_tfidf = Tfidf_vect.transform(train_x)
+    val_x_tfidf = Tfidf_vect.transform(val_x)
+
+    SVM = svm.SVC(C=1.0, kernel='linear', degree=3, gamma='auto')
+    SVM.fit(train_x_tfidf, train_y)
+    predictions_SVM = SVM.predict(val_x_tfidf)
+    print(f"Accuracy: {accuracy_score(predictions_SVM, val_y)}")
+
+    model_save_path = f"./models/svm_{task}_{method}.pkl"
+    os.makedirs(os.path.dirname(model_save_path), exist_ok=True)
+    joblib.dump(SVM, model_save_path)
+    print(f"Model saved to {model_save_path}")
