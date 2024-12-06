@@ -10,14 +10,17 @@ def train_models():
     for task in tasks:
         print(f"Training {task} models")
         for method in methods:
-            if task == "tri" and method == "lemmatization":
-                print("Skipping BERT model for tri with lemmatization preprocessing")
+            if task == "tri" and method in ["lemmatization", "stemming", "universal"]:
+                print(f"Skipping BERT model for {task} with {method} preprocessing")
             else:
                 print(f"Training BERT model for {task} with {method} preprocessing")
                 train_bert(task, method)
                 print("Finished training BERT model")
 
-            print(f"Training RoBERTa model for {task} with {method} preprocessing")
-            train_roberta(task, method)
+            if task == "tri" and method in ["lemmatization", "stemming"]:
+                print(f"Skipping RoBERTa model for {task} with {method} preprocessing")
+            else:
+                print(f"Training RoBERTa model for {task} with {method} preprocessing")
+                train_roberta(task, method)
 
 train_models()
