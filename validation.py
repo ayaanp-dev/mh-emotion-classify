@@ -7,6 +7,7 @@ import pandas as pd
 from data_processing.lemmatization import lemmatize_data
 from data_processing.stemming import stem_data
 from data_processing.universal import basic_preprocessing
+from tqdm import tqdm
 
 # Define the paths to your models and validation data CSVs
 MODEL_DIR = "models"
@@ -56,6 +57,7 @@ def evaluate_model(model, tokenizer, validation_data, preprocess_config):
     texts = validation_data['content'].tolist()
     labels = validation_data['emotion'].tolist()
 
+    print("Preprocessing and tokenizing the texts...")
     # Preprocess and tokenize the texts
     encodings = preprocess_data(texts, preprocess_config, tokenizer)
     
@@ -63,6 +65,7 @@ def evaluate_model(model, tokenizer, validation_data, preprocess_config):
     labels = torch.tensor(labels)
     
     with torch.no_grad():
+        print("Getting predictions from the model...")
         # Get predictions from the model
         outputs = model(**encodings)
         logits = outputs.logits
@@ -74,6 +77,7 @@ def evaluate_model(model, tokenizer, validation_data, preprocess_config):
     
     # Calculate accuracy
     accuracy = accuracy_score(all_labels, all_preds)
+    print(f"Accuracy: {accuracy}")
     return accuracy
 
 # Load the validation data CSVs
